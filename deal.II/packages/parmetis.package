@@ -6,6 +6,7 @@ BUILDCHAIN=custom
 
 package_specific_build() {
     cp -rf ${UNPACK_PATH}/${EXTRACTSTO}/* .
+    patch -p1 < ${ORIG_DIR}/${PROJECT}/patches/parmetis-4.0.3.patch
     cd metis
     make config prefix=${INSTALL_PATH} shared=1
     make -j ${PROCS}
