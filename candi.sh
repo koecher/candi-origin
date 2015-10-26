@@ -116,6 +116,102 @@ quit_if_fail() {
     fi
 }
 
+check_hash() {
+    DEST=$1
+    CHECKSUM=$2
+
+    echo "checking hash for $DEST (reference '$CHECKSUM')"
+
+    # Make sure the archive was downloaded                                                                                
+    if [ ! -e ${DEST} ]; then
+        cecho ${BAD} "${DEST} does not exist."
+        return 1
+    fi
+
+
+    # Check checksum has been specified for the package                                                                
+    if [ -z "${CHECKSUM}" ]; then
+        cecho ${WARN} "No checksum for ${DEST}"
+        return 0
+    fi
+
+    # Skip checksum if asked to ignore                                                                                 
+    if [ "${CHECKSUM}" = "ignore" ]; then
+        cecho ${WARN} "Skipped checksum check for ${DEST}"
+        return 0
+    fi
+
+    # Verify checksum using md5/md5sum                                                                                 
+    if builtin command -v md5 > /dev/null; then
+	if test "${CHECKSUM}" = "$(md5 -q ${DEST})" ; then
+	    echo "${DEST}: OK"
+	    return 0
+	else
+	    echo "${DEST}: FAIL"
+	    return 1
+	fi
+    elif builtin command -v md5sum > /dev/null; then
+	ret=`md5sum ${DEST}`
+	if [[ $ret == "${CHECKSUM}  ${DEST}" ]] ; then
+            echo "${DEST}: OK"
+            return 0
+        else
+            echo "${DEST}: FAIL, md5 is '$ret'"
+            return 1
+        fi
+    else
+        cecho ${BAD} "Neither md5 nor md5sum were found in the PATH"
+        return 2
+    fi
+    
+    return 3
+}
+
+download_file() {
+  DOWNLOADER=$1
+  URLS=$2
+  DEST=$3
+  HASH=$4
+
+  cecho ${GOOD} "download_file: $DEST"
+
+  for url in $URLS
+  do
+    if [ -f "$DEST" ] && check_hash $DEST $HASH ;  then
+	return 0
+    fi
+
+    echo "trying '$url' ..." 
+
+    if [ ${DOWNLOADER} = "curl" ] ; then
+	echo "curl -k $url -o ${DEST}"
+	if curl -k $url -o ${DEST} && check_hash $DEST $HASH ; then
+	    # success
+	    return 0
+	else
+	    echo " download failed"
+	    rm -f ${DEST}
+	    continue
+	fi
+    elif [ ${DOWNLOADER} = "wget" ] ; then
+
+	if wget --no-check-certificate -c $url -O ${DEST} && check_hash $DEST $HASH ; then
+	    # success
+	    return 0
+	else
+	    echo " download failed"
+	    rm -f ${DEST}
+	    continue
+	fi
+    else
+      cecho ${BAD} "unknown downloader '$DOWNLOADER'"
+      exit -1
+    fi
+
+  done
+  return 3
+}
+
 package_fetch () {
     # First, make sure we're in the right directory before downloading
     cd ${DOWNLOAD_PATH}
@@ -124,24 +220,17 @@ package_fetch () {
 
     # Fetch the package appropriately from its source
     if [ ${PACKING} = ".tar.bz2" ] || [ ${PACKING} = ".tar.gz" ] || [ ${PACKING} = ".tbz2" ] || [ ${PACKING} = ".tgz" ] || [ ${PACKING} = ".tar.xz" ] || [ ${PACKING} = ".zip" ]; then
-        # Only download archives that do not exist
-        if [ ! -e ${NAME}${PACKING} ]; then
-            if [ ${DOWNLOADER} = "curl" ] && [ ${CURL_DOWNLOADER_AVAILABLE} = "true" ] ; then
-                curl -O ${SOURCE}${NAME}${PACKING} || { rm ${SOURCE}${NAME}${PACKING}; exit 1; }
-            else
-                if [ ${STABLE_BUILD} = false ] && [ ${USE_SNAPSHOTS} = true ]; then
-                    wget --retry-connrefused --no-check-certificate --server-response -c ${SOURCE}${NAME}${PACKING} -O ${NAME}${PACKING} || { rm ${NAME}${PACKING}; exit 1; }
-                else
-                    wget --retry-connrefused --no-check-certificate -c ${SOURCE}${NAME}${PACKING} -O ${NAME}${PACKING} || { rm ${NAME}${PACKING}; exit 1; }
-                fi
-            fi
-        fi
-        
-        # Download again when using snapshots and unstable packages, but
-        # only when the timestamp has changed
-        if [ ${STABLE_BUILD} = false ] && [ ${USE_SNAPSHOTS} = true ]; then
-            wget --timestamping --retry-connrefused --no-check-certificate ${SOURCE}${NAME}${PACKING} || { rm ${SOURCE}${NAME}${PACKING}; exit 1; }
-        fi
+	if [ ${DOWNLOADER} = "curl" ] && [ ${CURL_DOWNLOADER_AVAILABLE} = "false" ] ; then
+	    DOWNLOADER="wget"
+	fi
+	
+	default URLS="${SOURCE}${NAME}${PACKING}"
+	
+	DEST=${NAME}${PACKING}
+	# download and check:
+	download_file $DOWNLOADER "$URLS" $DEST $CHECKSUM
+	## errors will be caught below...
+
     elif [ ${PACKING} = "hg" ]; then
         cd ${UNPACK_PATH}
         # Suitably clone or update hg repositories
@@ -196,41 +285,13 @@ package_verify() {
     # First make sure we're in the right directory before verifying checksum
     cd ${DOWNLOAD_PATH}
 
-    # Only need to verify archives
     if [ ${PACKING} = ".tar.bz2" ] || [ ${PACKING} = ".tar.gz" ] ||  [ ${PACKING} = ".tbz2" ] || [ ${PACKING} = ".tgz" ] || [ ${PACKING} = ".tar.xz" ] || [ ${PACKING} = ".zip" ]; then
-        cecho ${GOOD} "Verifying ${NAME}${PACKING}"
-      
-        # Check checksum has been specified for the package
-        if [ -z "${CHECKSUM}" ]; then
-            cecho ${WARN} "No checksum for ${NAME}${PACKING}"
-            return 1
-        fi
-        
-        # Skip checksum if asked to ignore
-        if [ "${CHECKSUM}" = "ignore" ]; then
-            cecho ${WARN} "Skipped checksum check for ${NAME}${PACKING}"
-            return 1
-        fi
-        
-        # Make sure the archive was downloaded
-        if [ ! -e ${NAME}${PACKING} ]; then
-            cecho ${BAD} "${NAME}${PACKING} does not exist. Please download first."
-            exit 1
-        fi
-        
-        # Verify checksum using md5/md5sum
-        if builtin command -v md5 > /dev/null; then
-            test "${CHECKSUM}" = "$(md5 -q ${NAME}${PACKING})" && echo "${NAME}${PACKING}: OK"
-        elif builtin command -v md5sum > /dev/null; then
-            echo "${CHECKSUM}  ${NAME}${PACKING}" | md5sum --check -
-        else
-            cecho ${BAD} "Neither md5 nor md5sum were found in the PATH"
-            return 1
-        fi
+	# archives are already verified
+	:
     fi
     
     # Quit with a useful message if something goes wrong
-    quit_if_fail "Error verifying checksum for ${NAME}${PACKING}\nMake sure that you are connected to the internet.\nIf a corrupted file has been downloaded, please remove\n   ${DOWNLOAD_PATH}/${NAME}${PACKING}\nbefore you restart candi!"
+    quit_if_fail "Error verifying checksum for ${NAME}${PACKING}!"
 }
 
 
@@ -748,6 +809,7 @@ for PACKAGE in ${PACKAGES[@]}; do
     unset MAKEOPTS
     unset SCONSOPTS
     unset CONFIG_FILE
+    unset URLS
     DOWNLOADER=wget
     TARGETS=('' install)
     PROCS=${ORIG_PROCS}

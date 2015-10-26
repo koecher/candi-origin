@@ -17,6 +17,7 @@ NAME=trilinos-${VERSION}-Source
 PACKING=.tar.bz2
 DOWNLOADER=curl
 BUILDCHAIN=cmake
+URLS="https://www.ces.clemson.edu/dealii/mirror/${NAME}${PACKING} ${SOURCE}${NAME}${PACKING}"
 
 #########################################################################
 
