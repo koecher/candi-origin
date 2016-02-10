@@ -4,8 +4,8 @@ fi
 
 if [ ${TRILINOS_MAJOR_VERSION} = "AUTO" ] || [ ${TRILINOS_MAJOR_VERSION} = "12" ]; then
     SOURCE=http://trilinos.csbsju.edu/download/files/
-    VERSION=12.4.2
-    CHECKSUM=6256264c5c8bc47253dbb38eb6ba26d1
+    #VERSION=12.4.2;CHECKSUM=6256264c5c8bc47253dbb38eb6ba26d1
+    VERSION=12.6.1;CHECKSUM=bea4f3653b3a4a23710fb7e1e753488d
 
 elif [ ${TRILINOS_MAJOR_VERSION} = "11" ]; then
     SOURCE=https://trilinos.org/oldsite/download/files/
