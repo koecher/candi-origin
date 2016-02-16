@@ -1,0 +1,30 @@
+VERSION=2.69
+NAME=autoconf-${VERSION}
+PACKING=.tar.gz
+SOURCE=http://ftp.gnu.org/gnu/autoconf/
+CHECKSUM=82d05e03b93e45f5a39b828dc9c6c29b
+BUILDCHAIN=custom
+
+
+package_specific_build () {
+
+    ${UNPACK_PATH}/${EXTRACTSTO}/configure ${CONFOPTS} --prefix=${INSTALL_PATH}/${NAME}
+
+    make ${MAKEOPTS} -j ${PROCS}
+
+    make install
+
+}
+
+package_specific_register () {
+    export PATH=${INSTALL_PATH}/${EXTRACTSTO}/bin:${PATH}
+}
+
+package_specific_conf () {
+    # Generate configuration file
+    CONFIG_FILE=${CONFIGURATION_PATH}/${NAME}
+    rm -f $CONFIG_FILE
+    echo "
+export PATH=${INSTALL_PATH}/${EXTRACTSTO}/bin:\${PATH}
+" >> $CONFIG_FILE
+}

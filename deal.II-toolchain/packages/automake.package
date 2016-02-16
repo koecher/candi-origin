@@ -1,0 +1,34 @@
+VERSION=1.14
+NAME=automake-${VERSION}
+PACKING=.tar.gz
+SOURCE=http://ftp.gnu.org/gnu/automake/
+CHECKSUM=a3c0d9298c6112f5f2c26c639ccaaed7
+BUILDCHAIN=custom
+
+
+package_specific_build () {
+
+    cp -rf ${UNPACK_PATH}/${EXTRACTSTO}/* .
+
+    ./bootstrap.sh
+
+    ./configure ${CONFOPTS} --prefix=${INSTALL_PATH}/${NAME}
+
+    make all ${MAKEOPTS} -j ${PROCS}
+
+    make install
+
+}
+
+package_specific_register () {
+    export PATH=${INSTALL_PATH}/${EXTRACTSTO}/bin:${PATH}
+}
+
+package_specific_conf () {
+    # Generate configuration file
+    CONFIG_FILE=${CONFIGURATION_PATH}/${NAME}
+    rm -f $CONFIG_FILE
+    echo "
+export PATH=${INSTALL_PATH}/${EXTRACTSTO}/bin:\${PATH}
+" >> $CONFIG_FILE
+}
