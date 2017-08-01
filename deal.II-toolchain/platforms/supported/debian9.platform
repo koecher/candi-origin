@@ -1,0 +1,14 @@
+
+# debian 9
+# This build script assumes that you have several packages already
+# installed via Debian's apt using the following commands:
+#
+# > sudo apt install build-essential lsb-release wget \
+#   automake autoconf gfortran \
+#   openmpi-bin openmpi-common libopenmpi-dev cmake subversion git \
+#   libblas-dev liblapack-dev libblas3 liblapack3 \
+#   libsuitesparse-dev libtool libboost-all-dev \
+#   splint tcl tcl-dev environment-modules qt4-dev-tools
+#
+# Then run candi again.
+##

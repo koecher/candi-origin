@@ -587,6 +587,7 @@ guess_platform() {
         local CODENAME=$(lsb_release -c -s)
         local DESCRIPTION=$(lsb_release -d -s)
         case ${DISTRO}:${CODENAME}:${DESCRIPTION} in
+            *:*:*Debian*\ 9*)      echo debian9;;
             *:*:*Ubuntu*\ 12*)     echo ubuntu12;;
             *:*:*Ubuntu*\ 14*)     echo ubuntu14;;
             *:*:*Ubuntu*\ 15*)     echo ubuntu15;;
